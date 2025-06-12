@@ -66,7 +66,6 @@ def fetch_video_details(video_ids):
             })
     return pd.DataFrame(stats)
 
-@@
 st.title("YouTube Channel Analyzer")
 key = st.text_input("🔑 YouTube API 키를 입력하세요", type="password")
 channel_url = st.text_input("🔗 분석할 YouTube 채널 URL을 입력하세요")
