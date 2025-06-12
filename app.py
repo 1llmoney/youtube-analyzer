@@ -24,7 +24,6 @@ def extract_channel_id(url):
 
 @st.cache_data
 def fetch_video_list(channel_id):
-    # fetch video IDs from uploads playlist
     res = YOUTUBE.channels().list(part='contentDetails', id=channel_id).execute()
     uploads_pl = res['items'][0]['contentDetails']['relatedPlaylists']['uploads']
     video_ids = []
@@ -58,18 +57,22 @@ def fetch_video_details(video_ids):
 
 # --- UI & Main ---
 st.title("YouTube Channel Analyzer")
+
+# 사용자마다 본인 키 입력
 key = st.text_input("🔑 YouTube API 키를 입력하세요", type="password")
 channel_url = st.text_input("🔗 분석할 YouTube 채널 URL을 입력하세요")
 
 if key and channel_url:
-    # build client with user key
+    # 입력된 키로 매번 클라이언트 생성
     YOUTUBE = build('youtube', 'v3', developerKey=key)
     channel_id = extract_channel_id(channel_url)
+
     if channel_id:
         with st.spinner("Fetching videos..."):
             vids = fetch_video_list(channel_id)
             df = fetch_video_details(vids)
             df = df.sort_values('views', ascending=False).reset_index(drop=True)
+
         for idx, row in df.iterrows():
             cols = st.columns([1, 3, 1])
             cols[0].image(row['thumbnail'], width=120)
@@ -78,10 +81,12 @@ if key and channel_url:
                 try:
                     transcript = YouTubeTranscriptApi.get_transcript(row['id'])
                     text = "\n".join([seg['text'] for seg in transcript])
-                    st.download_button(label="Download TXT",
-                                       data=text,
-                                       file_name=f"{row['id']}.txt",
-                                       mime='text/plain')
+                    st.download_button(
+                        label="Download TXT",
+                        data=text,
+                        file_name=f"{row['id']}.txt",
+                        mime='text/plain'
+                    )
                 except Exception as e:
                     st.error(f"No transcript available: {e}")
 
