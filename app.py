@@ -5,12 +5,10 @@ import streamlit as st
 from googleapiclient.discovery import build
 from youtube_transcript_api import YouTubeTranscriptApi
 
-# --- Page Config & Logo ---
+# --- Page Config ---
 st.set_page_config(
-    page_title="YouTube Channel Analyzer",
-    page_icon="logo.png",
+    page_title="YouTube Channel Analyzer"
 )
-st.image("logo.png", width=150)
 
 # --- Helpers ---
 def extract_channel_id(url):
@@ -97,7 +95,7 @@ if key and channel_url:
 
         # 결과 출력
         for idx, row in df.iterrows():
-            cols = st.columns([1, 3, 2])
+            cols = st.columns([1, 3, 1])
             cols[0].image(row['thumbnail'], width=120)
             cols[1].markdown(f"**{row['title']}**  \n조회수: {row['views']:,}")
             cols[2].metric(label="등급", value=row['label'])
@@ -114,5 +112,6 @@ if key and channel_url:
                     )
                 except Exception as e:
                     st.error(f"스크립트를 불러오는 중 오류 발생: {e}")
+
 
 
