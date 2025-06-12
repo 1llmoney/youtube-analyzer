@@ -80,19 +80,29 @@ if key and channel_url:
             df = fetch_video_details(vids)
             df = df.sort_values('views', ascending=False).reset_index(drop=True)
 
-        # 평균 조회수 계산 및 등급 부여
-        avg_views = df['views'].mean()
-        df['label'] = df['views'].apply(
-            lambda v: '0' if v == 0 else ('GREAT' if v >= 1.5 * avg_views else ('GOOD' if v >= avg_views else 'BAD'))
-        )
+        # 평균 조회수 및 등급 계산
+        avg_views = df['views'].mean() if not df.empty else 0
+        st.write(f"**채널 평균 조회수:** {avg_views:,.0f}")
+        def grade(v):
+            if v == 0:
+                return '0'
+            if avg_views == 0:
+                return 'BAD'
+            if v >= 1.5 * avg_views:
+                return 'GREAT'
+            if v >= avg_views:
+                return 'GOOD'
+            return 'BAD'
+        df['label'] = df['views'].apply(grade)
 
+        # 결과 출력
         for idx, row in df.iterrows():
-            cols = st.columns([1, 3, 1])
+            cols = st.columns([1, 3, 2])
             cols[0].image(row['thumbnail'], width=120)
-            cols[1].markdown(
-                f"**{row['title']}**  \n조회수: {row['views']:,}  \n등급: {row['label']}"
-            )
-            if cols[2].button("스크립트 다운", key=idx):
+            cols[1].markdown(f"**{row['title']}**  \n조회수: {row['views']:,}")
+            cols[2].metric(label="등급", value=row['label'])
+            # 스크립트 다운로드
+            if cols[2].button("스크립트 다운", key=f"txt_{idx}"):
                 try:
                     transcript = YouTubeTranscriptApi.get_transcript(row['id'])
                     text = "\n".join([seg['text'] for seg in transcript])
