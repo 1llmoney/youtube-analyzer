@@ -6,7 +6,7 @@ from googleapiclient.discovery import build
 from youtube_transcript_api import YouTubeTranscriptApi
 
 # --- Config ---
-API_KEY = AIzaSyDQ3vIyF0IVWfLo9tW86C0tb-14wIRjynw
+API_KEY = "AIzaSyDQ3vIyF0IVWfLo9tW86C0tb-14wIRjynw"
 YOUTUBE = build('youtube', 'v3', developerKey=API_KEY)
 
 # --- Helpers ---
