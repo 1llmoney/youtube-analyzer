@@ -66,11 +66,19 @@ def fetch_video_details(video_ids):
             })
     return pd.DataFrame(stats)
 
+@@
 st.title("YouTube Channel Analyzer")
-channel_url = st.text_input("Enter YouTube channel URL:")
-if channel_url:
+key = st.text_input("🔑 YouTube API 키를 입력하세요", type="password")
+channel_url = st.text_input("🔗 분석할 YouTube 채널 URL을 입력하세요")
+
+if key and channel_url:
+    # 사용자 입력 키로 매번 새로 클라이언트 빌드
+    YOUTUBE = build('youtube', 'v3', developerKey=key)
     channel_id = extract_channel_id(channel_url)
-    if channel_id:
+ 
+     if channel_id:
+         with st.spinner("Fetching videos..."):
+
         with st.spinner("Fetching videos..."):
             vids = fetch_video_list(channel_id)
             df = fetch_video_details(vids)
