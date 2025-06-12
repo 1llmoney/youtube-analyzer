@@ -37,6 +37,7 @@ def fetch_video_list(channel_id):
         pl_res = YOUTUBE.playlistItems().list(
             part='snippet', playlistId=uploads_pl, maxResults=50, pageToken=next_page
         ).execute()
+        # 업로드 순: API가 최신->과거 반환하므로 reverse 안 함
         video_ids += [item['snippet']['resourceId']['videoId'] for item in pl_res['items']]
         next_page = pl_res.get('nextPageToken')
         if not next_page:
@@ -68,7 +69,6 @@ key = st.text_input("🔑 YouTube API 키를 입력하세요", type="password")
 channel_url = st.text_input("🔗 분석할 YouTube 채널 URL을 입력하세요")
 
 if key and channel_url:
-    # build client with user key
     YOUTUBE = build('youtube', 'v3', developerKey=key)
     channel_id = extract_channel_id(channel_url)
 
@@ -76,8 +76,7 @@ if key and channel_url:
         with st.spinner("영상 목록을 불러오는 중..."):
             vids = fetch_video_list(channel_id)
             df = fetch_video_details(vids)
-            df = df.sort_values('views', ascending=False).reset_index(drop=True)
-
+        
         # 평균 조회수 및 등급 계산
         avg_views = df['views'].mean() if not df.empty else 0
         st.write(f"**채널 평균 조회수:** {avg_views:,.0f}")
@@ -93,12 +92,26 @@ if key and channel_url:
             return 'BAD'
         df['label'] = df['views'].apply(grade)
 
+        # 정렬 옵션
+        sort_option = st.selectbox("정렬 기준 선택", ['업로드 순서', '등급별 정렬'])
+        if sort_option == '등급별 정렬':
+            order_map = {'GREAT': 0, 'GOOD': 1, 'BAD': 2, '0': 3}
+            df = df.sort_values(by='label', key=lambda col: col.map(order_map))
+        # 업로드 순서는 API 반환 순서 그대로 유지
+
         # 결과 출력
         for idx, row in df.iterrows():
             cols = st.columns([1, 3, 1])
             cols[0].image(row['thumbnail'], width=120)
             cols[1].markdown(f"**{row['title']}**  \n조회수: {row['views']:,}")
-            cols[2].metric(label="등급", value=row['label'])
+            # 등급 컬러 적용
+            color = {
+                'GREAT': '#CCFF00',
+                'GOOD': '#00AA00',
+                'BAD': '#DD0000',
+                '0': '#888888'
+            }.get(row['label'], '#000000')
+            cols[2].markdown(f"<span style='color:{color}; font-weight:bold'>{row['label']}</span>", unsafe_allow_html=True)
             # 스크립트 다운로드
             if cols[2].button("스크립트 다운", key=f"txt_{idx}"):
                 try:
@@ -112,6 +125,7 @@ if key and channel_url:
                     )
                 except Exception as e:
                     st.error(f"스크립트를 불러오는 중 오류 발생: {e}")
+
 
 
 
