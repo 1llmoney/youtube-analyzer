@@ -1,13 +1,14 @@
-import re
-import requests
-import pandas as pd
-import streamlit as st
-from googleapiclient.discovery import build
-from youtube_transcript_api import YouTubeTranscriptApi
+-import streamlit as st
++import streamlit as st
+ import pandas as pd
+ from googleapiclient.discovery import build
+ from youtube_transcript_api import YouTubeTranscriptApi
 
-# --- Config ---
-API_KEY = "AIzaSyDQ3vIyF0IVWfLo9tW86C0tb-14wIRjynw"
-YOUTUBE = build('youtube', 'v3', developerKey=API_KEY)
+ # --- Config ---
+-API_KEY = "AIzaSyDQ3vIyF0IVWfLo9tW86C0tb-14wIRjynw"
++API_KEY = st.secrets["API_KEY"]
+ YOUTUBE = build('youtube', 'v3', developerKey=API_KEY)
+
 
 # --- Helpers ---
 def extract_channel_id(url):
