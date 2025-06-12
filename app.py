@@ -11,16 +11,21 @@ YOUTUBE = build('youtube', 'v3', developerKey=API_KEY)
 
 # --- Helpers ---
 def extract_channel_id(url):
-    """Extract channel ID from URL"""
     if 'channel/' in url:
         return url.split('channel/')[1].split('?')[0]
     elif 'user/' in url:
         username = url.split('user/')[1].split('?')[0]
         res = YOUTUBE.channels().list(part='id', forUsername=username).execute()
         return res['items'][0]['id']
+    elif '/@' in url:  # 핸들 주소 지원
+        handle = url.split('/@')[1].split('?')[0]
+        # search API로 채널 찾기
+        res = YOUTUBE.search().list(part='snippet', q=handle, type='channel', maxResults=1).execute()
+        return res['items'][0]['snippet']['channelId']
     else:
-        st.error("Unsupported URL format. Use /channel/ or /user/ URL.")
+        st.error("Unsupported URL format. Use /channel/, /user/ or @handle URL.")
         return None
+
 
 @st.cache
 def fetch_video_list(channel_id, max_results=50):
