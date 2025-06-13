@@ -156,7 +156,11 @@ if key:
         cols = st.columns([1,4,1,1,1])
         cols[0].image(row['thumbnail'],width=120)
         # 게시일 포맷
-        date_str = row['publishedAt'].strftime('%Y-%m-%d')
+        try:
+            date_obj = pd.to_datetime(row['publishedAt'])
+            date_str = date_obj.strftime('%Y-%m-%d')
+        except Exception:
+            date_str = str(row.get('publishedAt', ''))
         cols[1].markdown(f"{star} **{row['title']}**  \n조회수: {row['views']:,}  \n게시일: {date_str}")
         cols[2].markdown(f"구독자: {row['channel_subs']:,}")
         color = {'GREAT':'#CCFF00','GOOD':'#00AA00','BAD':'#DD0000','0':'#888888'}[row['label']]
@@ -168,6 +172,7 @@ if key:
                 st.download_button("다운로드",txt,file_name=f"{row['id']}.txt")
             except Exception as e:
                 st.error(f"스크립트 오류: {e}")
+
 
 
 
