@@ -53,7 +53,7 @@ def fetch_video_details(video_info):
                 'thumbnail': f"https://img.youtube.com/vi/{vid}/mqdefault.jpg",
                 'views': int(it['statistics'].get('viewCount', 0)),
                 'channelId': it['snippet']['channelId'],
-                'publishedAt': pd.to_datetime(pubs.get(vid, it['snippet']['publishedAt']))
+                'publishedAt': pd.to_datetime(it['snippet']['publishedAt']))
             })
     return pd.DataFrame(rows)
 
@@ -172,6 +172,7 @@ if key:
                 st.download_button("다운로드",txt,file_name=f"{row['id']}.txt")
             except Exception as e:
                 st.error(f"스크립트 오류: {e}")
+
 
 
 
