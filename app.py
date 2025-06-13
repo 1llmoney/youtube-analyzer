@@ -108,7 +108,7 @@ with col3:
 with col4:
     period = st.selectbox("업로드 기간", ["전체", "1개월 내", "3개월 내", "5개월 이상"])
 
-# 기간 filter 계산
+# 기간 필터 계산
 now = datetime.utcnow()
 published_after = published_before = None
 if period == "1개월 내":
@@ -143,14 +143,19 @@ if key:
 
     # 상세정보 로드
     df = fetch_video_details(vid_info)
-    subs_map = fetch_channel_subs(df["channelId"].unique().tolist())
-    df["channel_subs"] = df["channelId"].map(subs_map)
+
+    # 구독자 매핑(채널ID 컬럼 있을 때만)
+    if "channelId" in df.columns:
+        subs_map = fetch_channel_subs(df["channelId"].unique().tolist())
+        df["channel_subs"] = df["channelId"].map(subs_map)
+    else:
+        df["channel_subs"] = 0
 
     # 평균 조회수
     avg_views = df["views"].mean() if not df.empty else 0
     st.write(f"**평균 조회수:** {avg_views:,.0f}")
 
-    # 조회수 등급
+    # 조회수 등급 함수
     def view_grade(v):
         if v == 0:
             return "0"
@@ -164,23 +169,23 @@ if key:
     df["label"] = df["views"].apply(view_grade)
 
     # 정렬 옵션
-    sort_option = st.selectbox("정렬 방식", [
-        "조회수 내림차순", "조회수 오름차순",
-        "구독자 수 내림차순", "구독자 수 오름차순",
+    so = st.selectbox("정렬 방식", [
+        "조회수 내림차순","조회수 오름차순",
+        "구독자 수 내림차순","구독자 수 오름차순",
         "등급별"
     ])
-    if sort_option == "조회수 내림차순":
+    if so == "조회수 내림차순":
         df = df.sort_values("views", ascending=False)
-    elif sort_option == "조회수 오름차순":
+    elif so == "조회수 오름차순":
         df = df.sort_values("views", ascending=True)
-    elif sort_option == "구독자 수 내림차순":
+    elif so == "구독자 수 내림차순":
         df = df.sort_values("channel_subs", ascending=False)
-    elif sort_option == "구독자 수 오름차순":
+    elif so == "구독자 수 오름차순":
         df = df.sort_values("channel_subs", ascending=True)
     else:
         df = df.sort_values(
             by="label",
-            key=lambda c: c.map({"GREAT":0, "GOOD":1, "BAD":2, "0":3})
+            key=lambda c: c.map({"GREAT":0,"GOOD":1,"BAD":2,"0":3})
         )
 
     # 결과 출력
@@ -188,8 +193,7 @@ if key:
         star = "⭐️" if (
             row["channel_subs"] > 0 and row["views"] >= 1.5 * row["channel_subs"]
         ) else ""
-        # 8 columns: thumbnail, channel, title, views, subs, grade, date, button
-        cols = st.columns([1, 3, 4, 1, 1, 1, 1, 1])
+        cols = st.columns([1,3,4,1,1,1,1,1])
 
         # 1) 썸네일
         cols[0].image(row["thumbnail"], width=120)
@@ -198,34 +202,35 @@ if key:
             f"**🔵 [{row['channelTitle']}](https://www.youtube.com/channel/{row['channelId']})**",
             unsafe_allow_html=True
         )
-        # 3) 제목 (별 + 하이퍼링크)
+        # 3) 제목
         cols[2].markdown(
             f"{star} [{row['title']}](https://youtu.be/{row['id']})",
             unsafe_allow_html=True
         )
         # 4) 조회수
         cols[3].markdown(f"조회수: {row['views']:,}")
-        # 5) 구독자 수
+        # 5) 구독자
         cols[4].markdown(f"구독자: {row['channel_subs']:,}")
-        # 6) 등급 (컬러)
-        color = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}[row["label"]]
+        # 6) 등급
+        col6_color = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}[row["label"]]
         cols[5].markdown(
-            f"<span style='color:{color};font-weight:bold'>{row['label']}</span>",
+            f"<span style='color:{col6_color};font-weight:bold'>{row['label']}</span>",
             unsafe_allow_html=True
         )
         # 7) 게시일
         pub = row["publishedAt"]
         pub_str = pub.strftime("%Y-%m-%d") if pd.notna(pub) else "-"
         cols[6].markdown(f"게시일: {pub_str}")
-        # 8) 스크립트 보기 버튼 → 모달 띄우기
+        # 8) 스크립트 보기
         if cols[7].button("스크립트 보기", key=f"view{idx}"):
-            with st.modal(f"스크립트: {row['title'][:30]}…"):
+            with st.modal(f"스크립트 - {row['title'][:30]}…"):
                 try:
                     segs = YouTubeTranscriptApi.get_transcript(row["id"])
                     text = "\n".join(s["text"] for s in segs)
-                    st.text_area("스크립트 복사하기", text, height=400)
+                    st.text_area("스크립트 복사하기", text, height=350)
                 except Exception as e:
                     st.error(f"스크립트 오류: {e}")
+
 
 
 
