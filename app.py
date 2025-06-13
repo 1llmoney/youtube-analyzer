@@ -170,7 +170,8 @@ if key:
         df=df.sort_values(by="label",key=lambda c:c.map({"GREAT":0,"GOOD":1,"BAD":2,"0":3}))
 
     # Display rows
-    for idx, row in df.iterrows():
+    for 
+    idx, row in df.iterrows():
     star = "⭐️" if (row["channel_subs"] > 0 and row["views"] >= 1.5 * row["channel_subs"]) else ""
     cols = st.columns([1, 4, 1, 1, 1])
     cols[0].image(row["thumbnail"], width=120)
