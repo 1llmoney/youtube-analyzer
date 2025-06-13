@@ -71,7 +71,6 @@ def fetch_video_details(video_info):
                 "title": it["snippet"]["title"],
                 "thumbnail": f"https://img.youtube.com/vi/{vid}/mqdefault.jpg",
                 "views": int(it["statistics"].get("viewCount", 0)),
-                # pubs에 없으면 snippet.publishedAt 사용, errors="coerce"로 안전하게 파싱
                 "publishedAt": pd.to_datetime(
                     pubs.get(vid, it["snippet"]["publishedAt"]),
                     errors="coerce"
@@ -202,12 +201,20 @@ if key:
         ) else ""
         cols = st.columns([1, 4, 1, 1, 1])
         cols[0].image(row["thumbnail"], width=120)
+
+        # **여기** 게시일 처리만 바뀌었어요!
+        pub_str = (
+            row["publishedAt"].strftime("%Y-%m-%d")
+            if pd.notna(row["publishedAt"])
+            else "-"
+        )
         cols[1].markdown(
             f"**{row['channelTitle']}**  \n"
             f"{star} [{row['title']}](https://youtu.be/{row['id']})  \n"
-            f"조회수: {row['views']:,}  |  게시일: {row['publishedAt'].strftime('%Y-%m-%d')}",
+            f"조회수: {row['views']:,}  |  게시일: {pub_str}",
             unsafe_allow_html=True
         )
+
         cols[2].markdown(f"구독자: {row['channel_subs']:,}")
         color = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}[row["label"]]
         cols[3].markdown(
@@ -215,7 +222,7 @@ if key:
             unsafe_allow_html=True
         )
 
-        # ── 스크립트 보기 버튼 (개선된 예외 처리) ──
+        # ── 스크립트 보기 버튼 ──
         if cols[4].button("스크립트 보기", key=f"exp_{idx}"):
             try:
                 segs = YouTubeTranscriptApi.get_transcript(
@@ -226,6 +233,7 @@ if key:
                     st.code(text, language="plain")
             except Exception as e:
                 st.error(f"스크립트를 불러오는 중 오류 발생: {e}")
+
 
 
 
