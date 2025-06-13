@@ -27,11 +27,18 @@ def search_videos_global(keyword, max_results, region_code, duration, published_
 
 @st.cache_data
 def fetch_video_list(channel_id):
-    uploads_pl = YOUTUBE.channels().list(part="contentDetails", id=channel_id).execute()[ "items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
+    uploads_pl = YOUTUBE.channels().list(
+        part="contentDetails", id=channel_id
+    ).execute()["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
     vids, token = [], None
     while True:
-        resp = YOUTUBE.playlistItems().list(part="snippet", playlistId=uploads_pl, maxResults=50, pageToken=token).execute()
-        vids += [(i["snippet"]["resourceId"]["videoId"], i["snippet"]["publishedAt"]) for i in resp["items"]]
+        resp = YOUTUBE.playlistItems().list(
+            part="snippet", playlistId=uploads_pl, maxResults=50, pageToken=token
+        ).execute()
+        vids += [
+            (i["snippet"]["resourceId"]["videoId"], i["snippet"]["publishedAt"])
+            for i in resp["items"]
+        ]
         token = resp.get("nextPageToken")
         if not token:
             break
@@ -44,7 +51,9 @@ def fetch_video_details(video_info):
         batch = video_info[i:i+50]
         ids = [v[0] for v in batch]
         pubs = {v[0]: v[1] for v in batch}
-        res = YOUTUBE.videos().list(part="snippet,statistics", id=",".join(ids)).execute()
+        res = YOUTUBE.videos().list(
+            part="snippet,statistics", id=",".join(ids)
+        ).execute()
         for it in res["items"]:
             vid = it["id"]
             rows.append({
@@ -53,7 +62,10 @@ def fetch_video_details(video_info):
                 "thumbnail": f"https://img.youtube.com/vi/{vid}/mqdefault.jpg",
                 "views": int(it["statistics"].get("viewCount", 0)),
                 "channelId": it["snippet"]["channelId"],
-                "publishedAt": pd.to_datetime(pubs.get(vid, it["snippet"]["publishedAt"]))
+                "channelTitle": it["snippet"]["channelTitle"],
+                "publishedAt": pd.to_datetime(
+                    pubs.get(vid, it["snippet"]["publishedAt"])
+                )
             })
     return pd.DataFrame(rows)
 
@@ -62,10 +74,20 @@ def fetch_channel_subs(channel_ids):
     subs = {}
     for i in range(0, len(channel_ids), 50):
         batch = channel_ids[i:i+50]
-        res = YOUTUBE.channels().list(part="statistics", id=",".join(batch)).execute()
+        res = YOUTUBE.channels().list(
+            part="statistics", id=",".join(batch)
+        ).execute()
         for it in res["items"]:
             subs[it["id"]] = int(it["statistics"].get("subscriberCount", 0))
     return subs
+
+def download_caption(video_id):
+    try:
+        segs = YouTubeTranscriptApi.get_transcript(video_id)
+        txt = "\n".join(s["text"] for s in segs)
+        st.download_button("다운로드", txt, file_name=f"{video_id}.txt")
+    except Exception as e:
+        st.error(f"스크립트 오류: {e}")
 
 # --- UI & Main ---
 st.title("YouTube Channel Analyzer")
@@ -80,42 +102,53 @@ else:
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    region = st.selectbox("검색 국가", ["KR", "US", "JP"], format_func=lambda x: {"KR":"한국","US":"미국","JP":"일본"}[x])
+    region = st.selectbox(
+        "검색 국가", ["KR","US","JP"],
+        format_func=lambda x: {"KR":"한국","US":"미국","JP":"일본"}[x]
+    )
 with col2:
-    max_res = st.selectbox("검색 개수", [50, 100, 200, 500, 1000])
+    max_res = st.selectbox("검색 개수", [50,100,200,500,1000])
 with col3:
-    dur = st.selectbox("영상 유형", ["any", "short", "long"], format_func=lambda x: {"any":"전체","short":"쇼츠","long":"롱폼"}[x])
+    dur = st.selectbox(
+        "영상 유형", ["any","short","long"],
+        format_func=lambda x: {"any":"전체","short":"쇼츠","long":"롱폼"}[x]
+    )
 with col4:
-    period = st.selectbox("업로드 기간", ["전체", "1개월 내", "3개월 내", "5개월 이상"])
+    period = st.selectbox(
+        "업로드 기간", ["전체","1개월 내","3개월 내","5개월 이상"]
+    )
 
-# 기간 filter 계산
+# 기간 필터 계산
 now = datetime.utcnow()
 published_after = published_before = None
-if period == "1개월 내":
-    published_after = (now - timedelta(days=30)).isoformat('T') + 'Z'
-elif period == "3개월 내":
-    published_after = (now - timedelta(days=90)).isoformat('T') + 'Z'
-elif period == "5개월 이상":
-    published_before = (now - timedelta(days=150)).isoformat('T') + 'Z'
+if period=="1개월 내":
+    published_after = (now-timedelta(days=30)).isoformat('T')+'Z'
+elif period=="3개월 내":
+    published_after = (now-timedelta(days=90)).isoformat('T')+'Z'
+elif period=="5개월 이상":
+    published_before = (now-timedelta(days=150)).isoformat('T')+'Z'
 
 if key:
-    YOUTUBE = build("youtube", "v3", developerKey=key)
+    YOUTUBE = build("youtube","v3",developerKey=key)
 
     # ID 목록 생성
     if use_search:
         if not keyword:
-            st.warning("검색 키워드를 입력하세요.")
-            st.stop()
-        vids = search_videos_global(keyword, max_res, region, dur, published_after, published_before)
-        vid_info = [(v, None) for v in vids]
+            st.warning("검색 키워드를 입력하세요."); st.stop()
+        vids = search_videos_global(
+            keyword, max_res, region, dur,
+            published_after, published_before
+        )
+        vid_info = [(v,None) for v in vids]
         sub_count = None
     else:
         if not channel_url:
-            st.warning("채널 URL을 입력하세요.")
-            st.stop()
+            st.warning("채널 URL을 입력하세요."); st.stop()
         cid = channel_url.split('?')[0].split('/')[-1]
-        stats = YOUTUBE.channels().list(part="statistics", id=cid).execute()["items"][0]["statistics"]
-        sub_count = int(stats.get("subscriberCount", 0))
+        stats = YOUTUBE.channels().list(
+            part="statistics", id=cid
+        ).execute()["items"][0]["statistics"]
+        sub_count = int(stats.get("subscriberCount",0))
         st.write(f"**채널 구독자 수:** {sub_count:,}")
         vid_info = fetch_video_list(cid)
 
@@ -130,62 +163,62 @@ if key:
 
     # 조회수 등급
     def view_grade(v):
-        if v == 0:
-            return "0"
-        if avg_views == 0:
-            return "BAD"
-        if v >= 1.5 * avg_views:
-            return "GREAT"
-        if v >= avg_views:
-            return "GOOD"
+        if v==0: return "0"
+        if avg_views==0: return "BAD"
+        if v>=1.5*avg_views: return "GREAT"
+        if v>=avg_views: return "GOOD"
         return "BAD"
     df["label"] = df["views"].apply(view_grade)
 
     # 정렬 옵션
-    sort_option = st.selectbox("정렬 방식", [
-        "조회수 내림차순", "조회수 오름차순",
-        "구독자 수 내림차순", "구독자 수 오름차순",
+    sort_opt = st.selectbox("정렬 방식",[
+        "조회수 내림차순","조회수 오름차순",
+        "구독자 수 내림차순","구독자 수 오름차순",
         "등급별"
     ])
-    if sort_option == "조회수 내림차순":
-        df = df.sort_values("views", ascending=False)
-    elif sort_option == "조회수 오름차순":
-        df = df.sort_values("views", ascending=True)
-    elif sort_option == "구독자 수 내림차순":
-        df = df.sort_values("channel_subs", ascending=False)
-    elif sort_option == "구독자 수 오름차순":
-        df = df.sort_values("channel_subs", ascending=True)
+    if sort_opt=="조회수 내림차순":
+        df=df.sort_values("views",ascending=False)
+    elif sort_opt=="조회수 오름차순":
+        df=df.sort_values("views",ascending=True)
+    elif sort_opt=="구독자 수 내림차순":
+        df=df.sort_values("channel_subs",ascending=False)
+    elif sort_opt=="구독자 수 오름차순":
+        df=df.sort_values("channel_subs",ascending=True)
     else:
-        df = df.sort_values(by="label",
-            key=lambda c: c.map({"GREAT":0, "GOOD":1, "BAD":2, "0":3})
+        df=df.sort_values(
+            by="label",
+            key=lambda c: c.map({"GREAT":0,"GOOD":1,"BAD":2,"0":3})
         )
 
     # 결과 출력
     for idx, row in df.iterrows():
-        star = "⭐️" if (row["channel_subs"] > 0 and row["views"] >= 1.5 * row["channel_subs"]) else ""
-        cols = st.columns([1, 4, 1, 1, 1])
-        cols[0].image(row["thumbnail"], width=120)
-        cols[1].markdown(f"{star} **{row['title']}**  \n조회수: {row['views']:,}")
-        cols[2].markdown(f"구독자: {row['channel_subs']:,}")
-        color = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}[row["label"]]
-        cols[3].markdown(
-            f"<span style='color:{color};font-weight:bold'>{row['label']}</span>",
+        star = "⭐️" if (
+            row["channel_subs"]>0 and
+            row["views"]>=1.5*row["channel_subs"]
+        ) else ""
+        cols = st.columns([1,5,1,1,1])
+        cols[0].image(row["thumbnail"],width=120)
+
+        # 게시일 문자열
+        pub_str = row["publishedAt"].strftime("%Y-%m-%d")
+
+        # 채널명(파란진한) + 제목 링크
+        md = (
+            f"[**{row['channelTitle']}**](https://www.youtube.com/channel/{row['channelId']})  \n"
+            f"{star} **[{row['title']}](https://youtu.be/{row['id']})**  \n"
+            f"게시일: {pub_str}  |  조회수: {row['views']:,}  |  "
+            f"구독자: {row['channel_subs']:,}"
+        )
+        cols[1].markdown(md, unsafe_allow_html=True)
+
+        color_map={"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}
+        cols[2].markdown(
+            f"<span style='color:{color_map[row['label']]};font-weight:bold'>{row['label']}</span>",
             unsafe_allow_html=True
         )
-        # ── 스크립트 다운로드 부분 수정 ──
-        if cols[4].button("스크립트 다운", key=idx):
-            try:
-                segs = YouTubeTranscriptApi.get_transcript(row["id"])
-                txt = "\n".join([s["text"] for s in segs])
-                st.download_button(
-                    label="다운로드",
-                    data=txt,
-                    file_name=f"{row['id']}.txt",
-                    mime="text/plain",
-                )
-            except Exception as e:
-                st.error(f"스크립트 오류: {e}")
-        # ────────────────────────────────
+
+        if cols[4].button("스크립트 다운",key=idx):
+            download_caption(row["id"])
 
 
 
