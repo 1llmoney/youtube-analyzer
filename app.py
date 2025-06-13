@@ -67,7 +67,10 @@ def fetch_video_details(video_info):
                     pubs.get(vid, it["snippet"]["publishedAt"])
                 ),
             })
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    # ↙ 여기서 한 번만 strftime 호출
+    df["pub_date"] = df["publishedAt"].dt.strftime("%Y-%m-%d")
+    return df
 
 @st.cache_data
 def fetch_channel_subs(channel_ids):
@@ -169,14 +172,11 @@ if key:
         cols = st.columns([1,4,1,1,1])
         cols[0].image(row["thumbnail"],width=120)
 
-        # → 게시일 처리만 분리해서 변수로!
-        pub_date = row["publishedAt"].strftime("%Y-%m-%d")
-
         cols[1].markdown(
             f"**{row['channelTitle']}**  \n"
             f"{star} [{row['title']}](https://youtu.be/{row['id']})  \n"
             f"조회수: {row['views']:,}  \n"
-            f"게시일: {pub_date}",   # 이 줄 끝에는 쉼표 또는 괄호 닫기만!
+            f"게시일: {row['pub_date']}",  # ← 여기만 바뀜
             unsafe_allow_html=True,
         )
 
@@ -195,6 +195,7 @@ if key:
                     st.text(text)
             except Exception:
                 st.error("이 영상의 스크립트를 가져올 수 없습니다.")
+
 
 
 
