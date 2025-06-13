@@ -136,7 +136,9 @@ if key:
             st.warning("채널 URL을 입력하세요.")
             st.stop()
         cid = channel_url.split("?")[0].split("/")[-1]
-        stats = YOUTUBE.channels().list(part="statistics", id=cid).execute()["items"][0]["statistics"]
+        stats = YOUTUBE.channels().list(
+            part="statistics", id=cid
+        ).execute()["items"][0]["statistics"]
         sub_count = int(stats.get("subscriberCount", 0))
         st.write(f"**채널 구독자 수:** {sub_count:,}")
         vid_info = fetch_video_list(cid)
@@ -163,7 +165,7 @@ if key:
     sort_option = st.selectbox("정렬 방식", [
         "조회수 내림차순", "조회수 오름차순",
         "구독자 수 내림차순", "구독자 수 오름차순",
-        "등급별",
+        "등급별"
     ])
     if sort_option == "조회수 내림차순":
         df = df.sort_values("views", ascending=False)
@@ -174,34 +176,44 @@ if key:
     elif sort_option == "구독자 수 오름차순":
         df = df.sort_values("channel_subs", ascending=True)
     else:
-        df = df.sort_values(by="label", key=lambda c: c.map({"GREAT":0,"GOOD":1,"BAD":2,"0":3}))
+        df = df.sort_values(
+            by="label",
+            key=lambda c: c.map({"GREAT":0, "GOOD":1, "BAD":2, "0":3})
+        )
 
     # Display rows
     for idx, row in df.iterrows():
-        star = "⭐️" if (row["channel_subs"] > 0 and row["views"] >= 1.5 * row["channel_subs"]) else ""
+        star = "⭐️" if (
+            row["channel_subs"] > 0 and row["views"] >= 1.5 * row["channel_subs"]
+        ) else ""
         cols = st.columns([1, 4, 1, 1, 1])
         cols[0].image(row["thumbnail"], width=120)
 
-        # ★ 여기만 바뀌었습니다: "게시일" 표시 코드가 다시 들어갑니다
+        # ← 이 부분만 바뀌었어요
         cols[1].markdown(
             f"**{row['channelTitle']}**  \n"
             f"{star} [{row['title']}](https://youtu.be/{row['id']})  \n"
-            f"조회수: {row['views']:,}  |  게시일: {row['publishedAt'].strftime('%Y-%m-%d')}",
+            f"조회수: {row['views']:,}  \n"
+            f"게시일: {row['publishedAt'].strftime('%Y-%m-%d')}",
             unsafe_allow_html=True,
         )
 
         cols[2].markdown(f"구독자: {row['channel_subs']:,}")
-        color = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}[row["label"]]
+        color_map = {
+            "GREAT":"#CCFF00","GOOD":"#00AA00",
+            "BAD":"#DD0000","0":"#888888"
+        }
         cols[3].markdown(
-            f"<span style='color:{color};font-weight:bold'>{row['label']}</span>",
+            f"<span style='color:{color_map[row['label']]};"
+            f"font-weight:bold'>{row['label']}</span>",
             unsafe_allow_html=True,
         )
 
-        # 스크립트 보기
+        # 스크립트 보기 버튼
         if cols[4].button("스크립트 보기", key=f"exp_{idx}"):
             try:
                 segs = YouTubeTranscriptApi.get_transcript(
-                    row["id"], languages=["ko"]
+                    row["id"], languages=["ko","en"]
                 )
                 text = "\n".join(s["text"] for s in segs)
                 with st.expander(f"📝 {row['title']} 스크립트", expanded=True):
