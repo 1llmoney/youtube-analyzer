@@ -202,8 +202,8 @@ if key:
         cols = st.columns([1, 4, 1, 1, 1])
         cols[0].image(row["thumbnail"], width=120)
 
-        # 게시일: to_pydatetime()으로 변환 후 strftime
-        pub_str = row["publishedAt"].to_pydatetime().strftime("%Y-%m-%d")
+        # ← 이 줄만 바뀌었습니다.
+        pub_str = row["publishedAt"].strftime("%Y-%m-%d")
 
         detail_md = (
             f"{star} **[{row['title']}]"
@@ -224,6 +224,7 @@ if key:
 
         if cols[4].button("스크립트 다운", key=idx):
             download_caption(row["id"])
+
 
 
 
