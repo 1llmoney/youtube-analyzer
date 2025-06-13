@@ -182,7 +182,7 @@ if key:
         cols = st.columns([1, 4, 1, 1, 1])
         cols[0].image(row["thumbnail"], width=120)
 
-        # 여기에 '게시일' 추가된 markdown
+        # 이 줄만 정확히 복사·붙여넣으세요 ↓
         cols[1].markdown(
             f"**{row['channelTitle']}**  \n"
             f"{star} [{row['title']}](https://youtu.be/{row['id']})  \n"
@@ -197,7 +197,6 @@ if key:
             unsafe_allow_html=True,
         )
 
-        # 스크립트 보기 버튼
         if cols[4].button("스크립트 보기", key=f"exp_{idx}"):
             try:
                 segs = YouTubeTranscriptApi.get_transcript(
@@ -209,6 +208,7 @@ if key:
                     st.text(text)
             except Exception:
                 st.error("이 영상의 스크립트를 가져올 수 없습니다.")
+
 
 
 
