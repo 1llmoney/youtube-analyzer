@@ -182,14 +182,13 @@ if key:
         cols = st.columns([1, 4, 1, 1, 1])
         cols[0].image(row["thumbnail"], width=120)
 
-        # ── 수정된 블록: 게시일 포함 ──
+        # 여기에 '게시일' 추가된 markdown
         cols[1].markdown(
             f"**{row['channelTitle']}**  \n"
             f"{star} [{row['title']}](https://youtu.be/{row['id']})  \n"
             f"조회수: {row['views']:,}  |  게시일: {row['publishedAt'].strftime('%Y-%m-%d')}",
             unsafe_allow_html=True,
         )
-        # ────────────────────────────────
 
         cols[2].markdown(f"구독자: {row['channel_subs']:,}")
         color_map = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}
@@ -198,19 +197,19 @@ if key:
             unsafe_allow_html=True,
         )
 
-        # 스크립트 expander
+        # 스크립트 보기 버튼
         if cols[4].button("스크립트 보기", key=f"exp_{idx}"):
             try:
                 segs = YouTubeTranscriptApi.get_transcript(
                     row["id"],
-                    languages=["ko","en"],
+                    languages=["ko"],
                 )
                 text = "\n".join(s["text"] for s in segs)
                 with st.expander(f"📝 {row['title']} 스크립트", expanded=True):
                     st.text(text)
             except Exception:
                 st.error("이 영상의 스크립트를 가져올 수 없습니다.")
-                st.exception(None)
+
 
 
 
