@@ -63,14 +63,10 @@ def fetch_video_details(video_info):
                 "title": it["snippet"]["title"],
                 "thumbnail": f"https://img.youtube.com/vi/{vid}/mqdefault.jpg",
                 "views": int(it["statistics"].get("viewCount", 0)),
+                # 그대로 문자열로 남깁니다
                 "publishedAt": pubs.get(vid, it["snippet"]["publishedAt"])
             })
-    df = pd.DataFrame(rows)
-    # ← 여기서 publishedAt 을 datetime으로 변환
-    df["publishedAt"] = pd.to_datetime(df["publishedAt"])
-    # ← 변환된 datetime 에서 한 번만 strftime 호출
-    df["pub_date"] = df["publishedAt"].dt.strftime("%Y-%m-%d")
-    return df
+    return pd.DataFrame(rows)
 
 @st.cache_data
 def fetch_channel_subs(channel_ids):
@@ -85,6 +81,7 @@ def fetch_channel_subs(channel_ids):
 # --- UI & Main ---
 st.title("YouTube Channel Analyzer")
 
+# API Key & Mode
 key = st.text_input("🔑 YouTube API 키", type="password")
 use_search = st.checkbox("🔍 키워드 검색 모드")
 if use_search:
@@ -92,6 +89,7 @@ if use_search:
 else:
     channel_url = st.text_input("🔗 채널 URL")
 
+# Filters
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     region = st.selectbox(
@@ -108,6 +106,7 @@ with col3:
 with col4:
     period = st.selectbox("업로드 기간", ["전체","1개월 내","3개월 내","5개월 이상"])
 
+# Date filter
 now = datetime.utcnow()
 published_after = published_before = None
 if period == "1개월 내":
@@ -120,6 +119,7 @@ elif period == "5개월 이상":
 if key:
     YOUTUBE = build("youtube","v3",developerKey=key)
 
+    # Video IDs
     if use_search:
         if not keyword:
             st.warning("검색 키워드를 입력하세요."); st.stop()
@@ -134,13 +134,20 @@ if key:
         st.write(f"**채널 구독자 수:** {sub_count:,}")
         vid_info = fetch_video_list(cid)
 
+    # Load & fix dates
     df = fetch_video_details(vid_info)
+    # ← 여기서 한 번만 datetime으로 변환
+    df["publishedAt"] = pd.to_datetime(df["publishedAt"], errors="coerce")
+    df["pub_date"]     = df["publishedAt"].dt.strftime("%Y-%m-%d")
+
     subs_map = fetch_channel_subs(df["channelId"].unique().tolist())
     df["channel_subs"] = df["channelId"].map(subs_map)
 
+    # Avg views
     avg_views = df["views"].mean() if not df.empty else 0
     st.write(f"**평균 조회수:** {avg_views:,.0f}")
 
+    # Grade
     def view_grade(v):
         if v==0: return "0"
         if avg_views==0: return "BAD"
@@ -149,6 +156,7 @@ if key:
         return "BAD"
     df["label"] = df["views"].apply(view_grade)
 
+    # Sort
     sort_option = st.selectbox("정렬 방식",[
         "조회수 내림차순","조회수 오름차순",
         "구독자 수 내림차순","구독자 수 오름차순",
@@ -165,6 +173,7 @@ if key:
     else:
         df=df.sort_values(by="label",key=lambda c:c.map({"GREAT":0,"GOOD":1,"BAD":2,"0":3}))
 
+    # Display
     for idx,row in df.iterrows():
         star = "⭐️" if (row["channel_subs"]>0 and row["views"]>=1.5*row["channel_subs"]) else ""
         cols = st.columns([1,4,1,1,1])
@@ -191,6 +200,7 @@ if key:
                     st.text(text)
             except Exception:
                 st.error("이 영상의 스크립트를 가져올 수 없습니다.")
+
 
 
 
