@@ -93,37 +93,47 @@ with col3:
 if key:
     YOUTUBE = build("youtube", "v3", developerKey=key)
     channel_id = None
+
     # 구독자 수 표시
     if channel_url:
         channel_id = channel_url.split("?")[0].split("/")[-1]
-        info = YOUTUBE.channels().list(part="statistics", id=channel_id).execute()["items"][0]["statistics"]
-        sub_count = int(info.get('subscriberCount', 0))
+        stats = YOUTUBE.channels().list(part="statistics", id=channel_id).execute()["items"][0]["statistics"]
+        sub_count = int(stats.get('subscriberCount', 0))
         st.write(f"**구독자 수:** {sub_count:,}")
 
-    # 영상 ID 목록
+    # 영상 ID 목록 생성
     if use_search and keyword:
-        if channel_id:
-            vids = search_videos_in_channel(channel_id, keyword, max_res, region, dur)
-        else:
-            vids = search_videos_global(keyword, max_res, region, dur)
+        vids = (search_videos_in_channel(channel_id, keyword, max_res, region, dur)
+                if channel_id else
+                search_videos_global(keyword, max_res, region, dur))
     elif channel_id:
         vids = fetch_video_list(channel_id)
     else:
-        st.info("채널 URL이나 검색 키워드 모드를 사용해주세요.")
+        st.info("채널 URL 또는 키워드 검색 모드를 사용해주세요.")
         st.stop()
 
     # 세부 정보 조회
     df = fetch_video_details(vids)
 
-    # 평균 조회수 기준 (영상 vs 구독자 비율은 전체 영상에서 산정)
+    # 평균 조회수 계산
     avg_views = df["views"].mean() if not df.empty else 0
     st.write(f"**평균 조회수:** {avg_views:,.0f}")
 
+    # 조회수 등급(label) 부여 (필수!)
+    def view_grade(v):
+        if v == 0:
+            return "0"
+        if avg_views == 0:
+            return "BAD"
+        if v >= 1.5 * avg_views:
+            return "GREAT"
+        if v >= avg_views:
+            return "GOOD"
+        return "BAD"
+    df["label"] = df["views"].apply(view_grade)
+
     # 조회수 대비 구독자 비율 및 등급
-    if channel_url:
-        df["ratio"] = df["views"] / sub_count if sub_count>0 else 0
-    else:
-        df["ratio"] = df["views"] / avg_views if avg_views>0 else 0
+    df["ratio"] = (df["views"] / sub_count) if channel_id and sub_count>0 else (df["views"] / avg_views if avg_views>0 else 0)
     def ratio_grade(r):
         if r >= 1.0:
             return "HIGH"
@@ -133,9 +143,9 @@ if key:
     df["ratio_grade"] = df["ratio"].apply(ratio_grade)
 
     # 비율 등급 필터
-    ratio_filter = st.selectbox("조회수/구독자 비율 등급 필터", ["전체", "HIGH", "MEDIUM", "LOW"])
-    if ratio_filter != "전체":
-        df = df[df["ratio_grade"] == ratio_filter]
+    rf = st.selectbox("조회수/구독자 비율 등급 필터", ["전체", "HIGH", "MEDIUM", "LOW"])
+    if rf != "전체":
+        df = df[df["ratio_grade"] == rf]
 
     # 정렬 옵션
     order_map = {"GREAT":0, "GOOD":1, "BAD":2, "0":3}
@@ -145,21 +155,20 @@ if key:
     elif sort == "등급별":
         df = df.sort_values(by="label", key=lambda c: c.map(order_map))
     else:
-        ratio_map = {"HIGH":0, "MEDIUM":1, "LOW":2}
-        df = df.sort_values(by="ratio_grade", key=lambda c: c.map(ratio_map))
+        rmap = {"HIGH":0, "MEDIUM":1, "LOW":2}
+        df = df.sort_values(by="ratio_grade", key=lambda c: c.map(rmap))
 
     # 결과 출력
     for i, row in df.iterrows():
-        c1, c2, c3, c4 = st.columns([1, 4, 1, 1])
+        c1, c2, c3, c4 = st.columns([1,4,1,1])
         c1.image(row["thumbnail"], width=120)
         c2.markdown(f"**{row['title']}**  \n조회수: {row['views']:,}")
-        # 등급 표시
+        # 조회수 등급
         color = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}[row["label"]]
         c3.markdown(f"<span style='color:{color};font-weight:bold'>{row['label']}</span>", unsafe_allow_html=True)
-        # 비율 등급 표시
+        # 비율 등급
         rcolor = {"HIGH":"#FF00FF","MEDIUM":"#0000FF","LOW":"#FFA500"}[row["ratio_grade"]]
         c4.markdown(f"<span style='color:{rcolor};font-weight:bold'>{row['ratio_grade']}</span>", unsafe_allow_html=True)
-        # 스크립트 다운로드
         if c4.button("스크립트 다운", key=f"t{i}"):
             try:
                 segs = YouTubeTranscriptApi.get_transcript(row['id'])
