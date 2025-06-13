@@ -176,7 +176,7 @@ if key:
         cols = st.columns([1, 4, 1, 1, 1])
         cols[0].image(row["thumbnail"], width=120)
 
-        # ← 이 부분만 정확히 바꿔붙여주세요
+        # ← 여기서 '조회수'와 '게시일'을 동시에 찍어 줍니다.
         cols[1].markdown(
             f"**{row['channelTitle']}**  \n"
             f"{star} [{row['title']}](https://youtu.be/{row['id']})  \n"
@@ -199,6 +199,7 @@ if key:
                     st.text(text)
             except Exception:
                 st.error("이 영상의 스크립트를 가져올 수 없습니다.")
+
 
 
 
