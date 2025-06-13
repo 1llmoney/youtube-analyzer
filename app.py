@@ -170,46 +170,40 @@ if key:
         df=df.sort_values(by="label",key=lambda c:c.map({"GREAT":0,"GOOD":1,"BAD":2,"0":3}))
 
     # Display rows
-    for idx,row in df.iterrows():
-        star = "⭐️" if (row["channel_subs"]>0 and row["views"]>=1.5*row["channel_subs"]) else ""
-        cols = st.columns([1,4,1,1,1])
-        cols[0].image(row["thumbnail"],width=120)
+    for idx, row in df.iterrows():
+    star = "⭐️" if (row["channel_subs"] > 0 and row["views"] >= 1.5 * row["channel_subs"]) else ""
+    cols = st.columns([1, 4, 1, 1, 1])
+    cols[0].image(row["thumbnail"], width=120)
+    cols[1].markdown(
+        f"**{row['channelTitle']}**  \n"
+        f"{star} [{row['title']}](https://youtu.be/{row['id']})  \n"
+        f"조회수: {row['views']:,}",
+        unsafe_allow_html=True,
+    )
+    cols[2].markdown(f"구독자: {row['channel_subs']:,}")
+    color = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}[row["label"]]
+    cols[3].markdown(
+        f"<span style='color:{color};font-weight:bold'>{row['label']}</span>",
+        unsafe_allow_html=True,
+    )
 
-        # 채널명 + 클릭 가능한 제목
-        cols[1].markdown(
-            f"**{row['channelTitle']}**  \n"
-            f"{star} [{row['title']}](https://youtu.be/{row['id']})  \n"
-            f"조회수: {row['views']:,}",
-            unsafe_allow_html=True,
-        )
+    # ── 스크립트 보기 버튼 (개선된 예외 처리) ──
+    if cols[4].button("스크립트 보기", key=f"exp_{idx}"):
+        try:
+            segs = YouTubeTranscriptApi.get_transcript(
+                row["id"],
+                languages=["ko","en"],
+                # cookies={"cookie": "..."},
+                # proxies={"http":"http://...","https":"http://..."},
+            )
+            text = "\n".join(s["text"] for s in segs)
+            with st.expander(f"📝 {row['title']} 스크립트", expanded=True):
+                st.text(text)
+        except Exception:
+            st.error("이 영상의 스크립트를 가져올 수 없습니다.")
+            st.exception(None)
+    # ─────────────────────────────────────────────
 
-        cols[2].markdown(f"구독자: {row['channel_subs']:,}")
-        color_map = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}
-        cols[3].markdown(
-            f"<span style='color:{color_map[row['label']]};font-weight:bold'>{row['label']}</span>",
-            unsafe_allow_html=True,
-        )
-
-        # 스크립트 expander
-# ── 스크립트 보기 버튼 (개선된 예외 처리) ──
-if cols[4].button("스크립트 보기", key=f"exp_{idx}"):
-    try:
-        segs = YouTubeTranscriptApi.get_transcript(
-            row["id"],
-            languages=["ko","en"],
-            # 만약 쿠키 인증이나 프록시가 필요하다면 여기 옵션 추가
-            # cookies={"cookie": "..."},
-            # proxies={"http":"http://...","https":"http://..."},
-        )
-        text = "\n".join(s["text"] for s in segs)
-        with st.expander(f"📝 {row['title']} 스크립트", expanded=True):
-            # 복사 버튼 없이 단순 텍스트만 출력
-            st.text(text)
-    except Exception:
-        st.error("이 영상의 스크립트를 가져올 수 없습니다.")
-        # 로그용으로만 내부 예외 출력(사용자 화면에는 뜨지 않음)
-        st.exception(None)
-# ─────────────────────────────────────────────
 
 
 
