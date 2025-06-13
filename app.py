@@ -176,7 +176,7 @@ if key:
             for _, r in df.iterrows():
                 try:
                     segs = YouTubeTranscriptApi.get_transcript(r["id"])
-                    txt = "
+                    txt = 
 ".join(s["text"] for s in segs)
                     zf.writestr(f"{r['id']}.txt", txt)
                 except:
