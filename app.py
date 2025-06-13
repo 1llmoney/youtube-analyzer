@@ -6,6 +6,9 @@ from youtube_transcript_api import YouTubeTranscriptApi
 # --- Page Config ---
 st.set_page_config(page_title="YouTube Channel Analyzer")
 
+# --- Language Map ---
+lang_map = {'KR': 'ko', 'US': 'en', 'JP': 'ja'}
+
 # --- Helpers ---
 @st.cache_data
 def search_videos_global(keyword, max_results, region_code, duration):
@@ -15,7 +18,8 @@ def search_videos_global(keyword, max_results, region_code, duration):
         type="video",
         maxResults=max_results,
         regionCode=region_code,
-        videoDuration=duration
+        videoDuration=duration,
+        relevanceLanguage=lang_map[region_code]
     ).execute()
     return [item["id"]["videoId"] for item in res["items"]]
 
@@ -28,7 +32,8 @@ def search_videos_in_channel(channel_id, keyword, max_results, region_code, dura
         type="video",
         maxResults=max_results,
         regionCode=region_code,
-        videoDuration=duration
+        videoDuration=duration,
+        relevanceLanguage=lang_map[region_code]
     ).execute()
     return [item["id"]["videoId"] for item in res["items"]]
 
@@ -79,11 +84,17 @@ use_search = st.checkbox("🔍 키워드 검색 모드")
 # 검색 옵션
 col1, col2, col3 = st.columns(3)
 with col1:
-    region = st.selectbox("검색 국가", ["KR", "US", "JP"], format_func=lambda x: {"KR":"한국", "US":"미국", "JP":"일본"}[x])
+    region = st.selectbox(
+        "검색 국가", ["KR", "US", "JP"],
+        format_func=lambda x: {"KR":"한국", "US":"미국", "JP":"일본"}[x]
+    )
 with col2:
     max_res = st.selectbox("검색 개수", [50, 100, 200])
 with col3:
-    dur = st.selectbox("영상 유형", ["any", "short", "long"], format_func=lambda x: {"any":"전체", "short":"쇼츠", "long":"롱폼"}[x])
+    dur = st.selectbox(
+        "영상 유형", ["any", "short", "long"],
+        format_func=lambda x: {"any":"전체", "short":"쇼츠", "long":"롱폼"}[x]
+    )
 
 if key:
     YOUTUBE = build("youtube", "v3", developerKey=key)
@@ -91,8 +102,10 @@ if key:
     # 채널 ID 추출
     if channel_url:
         channel_id = channel_url.split("?")[0].split("/")[-1]
-        info = YOUTUBE.channels().list(part="statistics", id=channel_id).execute()["items"][0]["statistics"]
-        st.write(f"**구독자 수:** {int(info.get('subscriberCount',0)):,}")
+        info = YOUTUBE.channels().list(
+            part="statistics", id=channel_id
+        ).execute()["items"][0]["statistics"]
+        st.write(f"**구독자 수:** {int(info.get('subscriberCount', 0)):,}")
 
     # 영상 ID 취합
     if use_search and keyword:
@@ -103,7 +116,7 @@ if key:
     elif channel_id:
         vids = fetch_video_list(channel_id)
     else:
-        st.info("채널 URL이나 키워드 검색 모드를 사용하세요.")
+        st.info("채널 URL이나 검색 키워드를 사용해주세요.")
         st.stop()
 
     # 세부 정보 조회
@@ -116,28 +129,37 @@ if key:
         avg = df["views"].mean() if not df.empty else 0
     st.write(f"**평균 조회수:** {avg:,.0f}")
 
-    # 등급
+    # 등급 매기기
     def grade(v):
-        if v==0: return "0"
-        if avg==0: return "BAD"
-        if v>=1.5*avg: return "GREAT"
-        if v>=avg: return "GOOD"
+        if v == 0:
+            return "0"
+        if avg == 0:
+            return "BAD"
+        if v >= 1.5 * avg:
+            return "GREAT"
+        if v >= avg:
+            return "GOOD"
         return "BAD"
     df["label"] = df["views"].apply(grade)
 
     # 정렬
-    order_map = {"GREAT":0, "GOOD":1, "BAD":2, "0":3}
+    order_map = {"GREAT": 0, "GOOD": 1, "BAD": 2, "0": 3}
     sort = st.selectbox("정렬", ["조회수 내림차순", "등급별"])
-    if sort=="조회수 내림차순": df=df.sort_values("views", ascending=False)
-    else: df=df.sort_values(by="label", key=lambda c: c.map(order_map))
+    if sort == "조회수 내림차순":
+        df = df.sort_values("views", ascending=False)
+    else:
+        df = df.sort_values(by="label", key=lambda c: c.map(order_map))
 
-    # 출력
-    for i,row in df.iterrows():
-        c1,c2,c3=st.columns([1,3,1])
+    # 결과 출력
+    for i, row in df.iterrows():
+        c1, c2, c3 = st.columns([1, 3, 1])
         c1.image(row["thumbnail"], width=120)
         c2.markdown(f"**{row['title']}**  \n조회수: {row['views']:,}")
-        color={'GREAT':'#CCFF00','GOOD':'#00AA00','BAD':'#DD0000','0':'#888888'}[row['label']]
-        c3.markdown(f"<span style='color:{color}; font-weight:bold'>{row['label']}</span>", unsafe_allow_html=True)
+        color = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}[row["label"]]
+        c3.markdown(
+            f"<span style='color:{color}; font-weight:bold'>{row['label']}</span>",
+            unsafe_allow_html=True
+        )
         if c3.button("스크립트 다운", key=f"t{i}"):
             try:
                 segs = YouTubeTranscriptApi.get_transcript(row['id'])
