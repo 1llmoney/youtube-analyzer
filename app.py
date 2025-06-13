@@ -104,7 +104,7 @@ if use_search:
 else:
     channel_url = st.text_input("🔗 채널 URL")
 
-# Filter options
+# Filters
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     region = st.selectbox("검색 국가", ["KR","US","JP"], format_func=lambda x: {"KR":"한국","US":"미국","JP":"일본"}[x])
@@ -113,7 +113,7 @@ with col2:
 with col3:
     dur = st.selectbox("영상 유형", ["any","short","long"], format_func=lambda x: {"any":"전체","short":"쇼츠","long":"롱폼"}[x])
 with col4:
-    period = st.selectbox("업로드 기간", ["전체","1개월 내","3개월 내","5개월 이상"])
+    period = st.selectbox("업로드 기간", ["전체","1개월 내","3개월 내","5개월 이상"] )
 
 # Date filters
 now = datetime.utcnow()
@@ -168,21 +168,6 @@ if key:
     elif sort_option=="구독자 수 오름차순": df=df.sort_values("channel_subs",ascending=True)
     else: df=df.sort_values(by="label",key=lambda c:c.map({"GREAT":0,"GOOD":1,"BAD":2,"0":3}))
 
-    # Bulk transcript download
-    if st.button("전체 스크립트 다운로드 (ZIP)"):
-        import io, zipfile
-        zip_buf = io.BytesIO()
-        with zipfile.ZipFile(zip_buf, "w") as zf:
-            for _, r in df.iterrows():
-                try:
-                    segs = YouTubeTranscriptApi.get_transcript(r["id"])
-                    txt = 
-".join(s["text"] for s in segs)
-                    zf.writestr(f"{r['id']}.txt", txt)
-                except:
-                    pass
-        st.download_button("ZIP 다운로드", zip_buf.getvalue(), file_name="transcripts.zip", mime="application/zip")
-
     # Display
     color_map={"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}
     for idx,row in df.iterrows():
@@ -191,10 +176,8 @@ if key:
         cols[0].image(row["thumbnail"],width=120)
         url = f"https://www.youtube.com/watch?v={row['id']}"
         cols[1].markdown(
-            f"**{row['channelTitle']}**  
-"
-            f"{star} [{row['title']}]({url})  
-"
+            f"**{row['channelTitle']}**  \n"
+            f"{star} [{row['title']}]({url})  \n"
             f"조회수: {row['views']:,}  |  좋아요: {row['likes']:,}  |  댓글: {row['comments']:,}"  
         , unsafe_allow_html=True)
         date_str = row["publishedAt"].strftime("%Y-%m-%d") if pd.notnull(row["publishedAt"]) else "N/A"
@@ -203,6 +186,15 @@ if key:
         lbl=row['label']
         html = f"<span style='color:{color_map[lbl]};font-weight:bold'>{lbl}</span>"
         cols[4].markdown(html,unsafe_allow_html=True)
+        # Individual transcript download
+        if cols[4].button("스크립트 다운",key=idx):
+            try:
+                segs=YouTubeTranscriptApi.get_transcript(row['id'])
+                txt="\n".join(s['text'] for s in segs)
+                st.download_button("TXT 저장",txt,file_name=f"{row['id']}.txt")
+            except Exception as e:
+                st.error(f"스크립트 오류: {e}")
+
 
 
 
