@@ -170,8 +170,7 @@ if key:
         df=df.sort_values(by="label",key=lambda c:c.map({"GREAT":0,"GOOD":1,"BAD":2,"0":3}))
 
     # Display rows
-    for 
-    idx, row in df.iterrows():
+for idx, row in df.iterrows():
     star = "⭐️" if (row["channel_subs"] > 0 and row["views"] >= 1.5 * row["channel_subs"]) else ""
     cols = st.columns([1, 4, 1, 1, 1])
     cols[0].image(row["thumbnail"], width=120)
@@ -182,9 +181,9 @@ if key:
         unsafe_allow_html=True,
     )
     cols[2].markdown(f"구독자: {row['channel_subs']:,}")
-    color = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}[row["label"]]
+    color_map = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}
     cols[3].markdown(
-        f"<span style='color:{color};font-weight:bold'>{row['label']}</span>",
+        f"<span style='color:{color_map[row['label']]};font-weight:bold'>{row['label']}</span>",
         unsafe_allow_html=True,
     )
 
@@ -193,7 +192,7 @@ if key:
         try:
             segs = YouTubeTranscriptApi.get_transcript(
                 row["id"],
-                languages=["ko","en"],
+                languages=["ko", "en"],
                 # cookies={"cookie": "..."},
                 # proxies={"http":"http://...","https":"http://..."},
             )
@@ -204,6 +203,7 @@ if key:
             st.error("이 영상의 스크립트를 가져올 수 없습니다.")
             st.exception(None)
     # ─────────────────────────────────────────────
+
 
 
 
