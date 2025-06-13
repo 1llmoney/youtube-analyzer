@@ -191,16 +191,25 @@ if key:
         )
 
         # 스크립트 expander
-        if cols[4].button("스크립트 보기", key=f"exp_{idx}"):
-            try:
-                segs = YouTubeTranscriptApi.get_transcript(
-                    row["id"], languages=["ko","en"]
-                )
-                text = "\n".join(s["text"] for s in segs)
-                with st.expander(f"📝 {row['title']} 스크립트", expanded=True):
-                    st.code(text, language="plain")
-            except Exception as e:
-                st.error(f"스크립트를 불러오는 중 오류 발생: {e}")
+if cols[4].button("스크립트 보기", key=f"exp_{idx}"):
+    try:
+        segs = YouTubeTranscriptApi.get_transcript(
+            row["id"],
+            languages=["ko","en"],
+            # 만약 쿠키 인증이나 프록시가 필요하다면 여기 옵션 추가
+            # cookies={"cookie": "..."},
+            # proxies={"http":"http://...","https":"http://..."},
+        )
+        text = "\n".join(s["text"] for s in segs)
+        with st.expander(f"📝 {row['title']} 스크립트", expanded=True):
+            # 복사 버튼 없이 단순 텍스트만 출력
+            st.text(text)
+    except Exception:
+        st.error("이 영상의 스크립트를 가져올 수 없습니다.")
+        # 로그용으로만 내부 예외 출력(사용자 화면에는 뜨지 않음)
+        st.exception(None)
+# ─────────────────────────────────────────────
+
 
 
 
