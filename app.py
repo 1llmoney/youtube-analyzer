@@ -191,7 +191,6 @@ if key:
                 st.download_button("다운로드", txt, file_name=f"{row['id']}.txt")
             except Exception as e:
                 st.error(f"스크립트 오류: {e}")
-```
 
 
 
