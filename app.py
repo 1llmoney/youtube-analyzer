@@ -181,6 +181,7 @@ if key:
         star = "⭐️" if (row["channel_subs"] > 0 and row["views"] >= 1.5 * row["channel_subs"]) else ""
         cols = st.columns([1, 4, 1, 1, 1])
         cols[0].image(row["thumbnail"], width=120)
+
         # Channel title bold + linked video title
         cols[1].markdown(
             f"**{row['channelTitle']}**  \n"
@@ -195,18 +196,19 @@ if key:
             unsafe_allow_html=True,
         )
 
-        # Transcript Expander with language priority
-        with cols[4]:
-            if st.button("스크립트 보기", key=f"exp_{idx}"):
-                try:
-                    segs = YouTubeTranscriptApi.get_transcript(
-                        row["id"], languages=["ko", "en"]
-                    )
-                    text = "\n".join(s["text"] for s in segs)
-                    with st.expander("📝 스크립트 펼치기", expanded=True):
-                        st.code(text, language="plain")
-                except Exception as e:
-                    st.error(f"스크립트를 불러오는 중 오류 발생: {e}")
+        # Transcript Expander with copy
+        if cols[4].button("스크립트 보기", key=f"exp_{idx}"):
+            try:
+                segs = YouTubeTranscriptApi.get_transcript(
+                    row["id"], languages=["ko", "en"]
+                )
+                text = "\n".join(s["text"] for s in segs)
+                # Full-width expander below
+                with st.expander(f"📝 {row['title']} 스크립트", expanded=True):
+                    st.text_area("스크립트 복사하기", text, height=300)
+            except Exception as e:
+                st.error(f"스크립트를 불러오는 중 오류 발생: {e}")
+
 
 
 
