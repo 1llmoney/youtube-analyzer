@@ -1,6 +1,5 @@
 import pandas as pd
 import streamlit as st
-import requests
 from googleapiclient.discovery import build
 from youtube_transcript_api import YouTubeTranscriptApi
 from datetime import datetime, timedelta
@@ -30,13 +29,16 @@ def search_videos_global(keyword, max_results, region_code, duration, published_
 def fetch_video_list(channel_id):
     uploads_pl = (
         YOUTUBE.channels()
-        .list(part="contentDetails", id=channel_id)
-        .execute()["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
+               .list(part="contentDetails", id=channel_id)
+               .execute()["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
     )
     vids, token = [], None
     while True:
         resp = YOUTUBE.playlistItems().list(
-            part="snippet", playlistId=uploads_pl, maxResults=50, pageToken=token
+            part="snippet",
+            playlistId=uploads_pl,
+            maxResults=50,
+            pageToken=token
         ).execute()
         vids += [
             (i["snippet"]["resourceId"]["videoId"], i["snippet"]["publishedAt"])
@@ -53,8 +55,13 @@ def fetch_video_details(video_info):
     for i in range(0, len(video_info), 50):
         batch = video_info[i : i + 50]
         ids = [v[0] for v in batch]
-        pubs = {v[0]: v[1] for v in batch}
-        res = YOUTUBE.videos().list(part="snippet,statistics", id=",".join(ids)).execute()
+        # None인 publishedAt 은 제외
+        pubs = {v[0]: v[1] for v in batch if v[1]}
+
+        res = YOUTUBE.videos().list(
+            part="snippet,statistics",
+            id=",".join(ids)
+        ).execute()
         for it in res["items"]:
             vid = it["id"]
             rows.append({
@@ -64,9 +71,10 @@ def fetch_video_details(video_info):
                 "title": it["snippet"]["title"],
                 "thumbnail": f"https://img.youtube.com/vi/{vid}/mqdefault.jpg",
                 "views": int(it["statistics"].get("viewCount", 0)),
+                # pubs에 없으면 snippet.publishedAt 사용, errors="coerce"로 안전하게 파싱
                 "publishedAt": pd.to_datetime(
                     pubs.get(vid, it["snippet"]["publishedAt"]),
-                    errors="coerce"  # invalid parsing -> NaT
+                    errors="coerce"
                 ),
             })
     return pd.DataFrame(rows)
@@ -76,7 +84,10 @@ def fetch_channel_subs(channel_ids):
     subs = {}
     for i in range(0, len(channel_ids), 50):
         batch = channel_ids[i : i + 50]
-        res = YOUTUBE.channels().list(part="statistics", id=",".join(batch)).execute()
+        res = YOUTUBE.channels().list(
+            part="statistics",
+            id=",".join(batch)
+        ).execute()
         for it in res["items"]:
             subs[it["id"]] = int(it["statistics"].get("subscriberCount", 0))
     return subs
@@ -107,7 +118,9 @@ with col3:
         format_func=lambda x: {"any":"전체","short":"쇼츠","long":"롱폼"}[x]
     )
 with col4:
-    period = st.selectbox("업로드 기간", ["전체", "1개월 내", "3개월 내", "5개월 이상"])
+    period = st.selectbox(
+        "업로드 기간", ["전체", "1개월 내", "3개월 내", "5개월 이상"]
+    )
 
 # Date filter
 now = datetime.utcnow()
@@ -136,7 +149,9 @@ if key:
             st.warning("채널 URL을 입력하세요.")
             st.stop()
         cid = channel_url.split("?")[0].split("/")[-1]
-        stats = YOUTUBE.channels().list(part="statistics", id=cid).execute()["items"][0]["statistics"]
+        stats = YOUTUBE.channels().list(
+            part="statistics", id=cid
+        ).execute()["items"][0]["statistics"]
         sub_count = int(stats.get("subscriberCount", 0))
         st.write(f"**채널 구독자 수:** {sub_count:,}")
         vid_info = fetch_video_list(cid)
@@ -174,34 +189,33 @@ if key:
     elif sort_option == "구독자 수 오름차순":
         df = df.sort_values("channel_subs", ascending=True)
     else:
-        df = df.sort_values(by="label", key=lambda c: c.map({"GREAT":0,"GOOD":1,"BAD":2,"0":3}))
+        df = df.sort_values(
+            by="label",
+            key=lambda c: c.map({"GREAT":0,"GOOD":1,"BAD":2,"0":3})
+        )
 
     # Display
     for idx, row in df.iterrows():
-        star = "⭐️" if (row["channel_subs"] > 0 and row["views"] >= 1.5 * row["channel_subs"]) else ""
+        star = "⭐️" if (
+            row["channel_subs"] > 0 and
+            row["views"] >= 1.5 * row["channel_subs"]
+        ) else ""
         cols = st.columns([1, 4, 1, 1, 1])
         cols[0].image(row["thumbnail"], width=120)
-
-        # 게시일 처리: NaT일 경우 "-"로
-        if pd.isna(row["publishedAt"]):
-            pub_date = "-"
-        else:
-            pub_date = row["publishedAt"].strftime("%Y-%m-%d")
-
         cols[1].markdown(
             f"**{row['channelTitle']}**  \n"
             f"{star} [{row['title']}](https://youtu.be/{row['id']})  \n"
-            f"조회수: {row['views']:,}  |  게시일: {pub_date}",
-            unsafe_allow_html=True,
+            f"조회수: {row['views']:,}  |  게시일: {row['publishedAt'].strftime('%Y-%m-%d')}",
+            unsafe_allow_html=True
         )
         cols[2].markdown(f"구독자: {row['channel_subs']:,}")
         color = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}[row["label"]]
         cols[3].markdown(
             f"<span style='color:{color};font-weight:bold'>{row['label']}</span>",
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
 
-        # 스크립트 보기
+        # ── 스크립트 보기 버튼 (개선된 예외 처리) ──
         if cols[4].button("스크립트 보기", key=f"exp_{idx}"):
             try:
                 segs = YouTubeTranscriptApi.get_transcript(
@@ -209,18 +223,10 @@ if key:
                 )
                 text = "\n".join(s["text"] for s in segs)
                 with st.expander(f"📝 {row['title']} 스크립트", expanded=True):
-                    st.text(text)
-            except Exception:
-                st.error("이 영상의 스크립트를 가져올 수 없습니다.")
+                    st.code(text, language="plain")
+            except Exception as e:
+                st.error(f"스크립트를 불러오는 중 오류 발생: {e}")
 
-        # 썸네일 다운로드
-        thumb_data = requests.get(row["thumbnail"]).content
-        cols[4].download_button(
-            label="썸네일 다운",
-            data=thumb_data,
-            file_name=f"{row['id']}.jpg",
-            mime="image/jpeg",
-        )
 
 
 
