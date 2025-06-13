@@ -1,6 +1,6 @@
 import pandas as pd
 import streamlit as st
-import requests  # 썸네일 다운로드용
+import requests
 from googleapiclient.discovery import build
 from youtube_transcript_api import YouTubeTranscriptApi
 from datetime import datetime, timedelta
@@ -65,7 +65,8 @@ def fetch_video_details(video_info):
                 "thumbnail": f"https://img.youtube.com/vi/{vid}/mqdefault.jpg",
                 "views": int(it["statistics"].get("viewCount", 0)),
                 "publishedAt": pd.to_datetime(
-                    pubs.get(vid, it["snippet"]["publishedAt"])
+                    pubs.get(vid, it["snippet"]["publishedAt"]),
+                    errors="coerce"  # invalid parsing -> NaT
                 ),
             })
     return pd.DataFrame(rows)
@@ -106,9 +107,7 @@ with col3:
         format_func=lambda x: {"any":"전체","short":"쇼츠","long":"롱폼"}[x]
     )
 with col4:
-    period = st.selectbox(
-        "업로드 기간", ["전체", "1개월 내", "3개월 내", "5개월 이상"]
-    )
+    period = st.selectbox("업로드 기간", ["전체", "1개월 내", "3개월 내", "5개월 이상"])
 
 # Date filter
 now = datetime.utcnow()
@@ -183,8 +182,12 @@ if key:
         cols = st.columns([1, 4, 1, 1, 1])
         cols[0].image(row["thumbnail"], width=120)
 
-        # 채널명, 제목, 조회수, 게시일
-        pub_date = row["publishedAt"].strftime("%Y-%m-%d")
+        # 게시일 처리: NaT일 경우 "-"로
+        if pd.isna(row["publishedAt"]):
+            pub_date = "-"
+        else:
+            pub_date = row["publishedAt"].strftime("%Y-%m-%d")
+
         cols[1].markdown(
             f"**{row['channelTitle']}**  \n"
             f"{star} [{row['title']}](https://youtu.be/{row['id']})  \n"
@@ -198,7 +201,7 @@ if key:
             unsafe_allow_html=True,
         )
 
-        # ── 스크립트 보기 expander ──
+        # 스크립트 보기
         if cols[4].button("스크립트 보기", key=f"exp_{idx}"):
             try:
                 segs = YouTubeTranscriptApi.get_transcript(
@@ -210,7 +213,7 @@ if key:
             except Exception:
                 st.error("이 영상의 스크립트를 가져올 수 없습니다.")
 
-        # ── 썸네일 다운로드 버튼 ──
+        # 썸네일 다운로드
         thumb_data = requests.get(row["thumbnail"]).content
         cols[4].download_button(
             label="썸네일 다운",
