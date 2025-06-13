@@ -172,17 +172,18 @@ if key:
         pub_str = row['publishedAt'].strftime("%Y-%m-%d") if not pd.isna(row['publishedAt']) else "–"
         cols[4].markdown(f"게시일: {pub_str}")
 
-        if cols[5].button("스크립트 보기",key=f"view{idx}"):
+        # 스크립트 보기 모달
+        if cols[5].button("스크립트 보기", key="view"+str(idx)):
             try:
-                segs = YouTubeTranscriptApi.get_transcript(row['id'],languages=['ko','en'])
-                text = "\n".join(seg['text'] for seg in segs)
-            except (NoTranscriptFound,TranscriptsDisabled,CouldNotRetrieveTranscript):
+                segs = YouTubeTranscriptApi.get_transcript(row['id'], languages=['ko'])
+                text = "\n".join([s['text'] for s in segs])
+            except (NoTranscriptFound, TranscriptsDisabled, CouldNotRetrieveTranscript):
                 text = "자막을 불러올 수 없습니다."
             except Exception:
                 text = "자막 요청 중 오류가 발생했습니다."
-            st.modal(f"스크립트 – {row['title'][:30]}")(
-                st.text_area("",text,height=400)
-            )
+
+            with st.modal("스크립트"):
+                st.text_area("", text, height=400)
 
 
 
