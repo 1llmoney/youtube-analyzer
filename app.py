@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import requests  # 썸네일 다운로드용
 from googleapiclient.discovery import build
 from youtube_transcript_api import YouTubeTranscriptApi
 from datetime import datetime, timedelta
@@ -22,13 +23,8 @@ def search_videos_global(keyword, max_results, region_code, duration, published_
         params["publishedAfter"] = published_after
     if published_before:
         params["publishedBefore"] = published_before
-
     res = YOUTUBE.search().list(**params).execute()
-    # ❗ (videoId, publishedAt) 튜플로 반환
-    return [
-        (item["id"]["videoId"], item["snippet"]["publishedAt"])
-        for item in res["items"]
-    ]
+    return [item["id"]["videoId"] for item in res["items"]]
 
 @st.cache_data
 def fetch_video_list(channel_id):
@@ -68,8 +64,9 @@ def fetch_video_details(video_info):
                 "title": it["snippet"]["title"],
                 "thumbnail": f"https://img.youtube.com/vi/{vid}/mqdefault.jpg",
                 "views": int(it["statistics"].get("viewCount", 0)),
-                # publishedAt는 ISO 문자열이므로 to_datetime 처리
-                "publishedAt": pd.to_datetime(pubs.get(vid, it["snippet"]["publishedAt"]))
+                "publishedAt": pd.to_datetime(
+                    pubs.get(vid, it["snippet"]["publishedAt"])
+                ),
             })
     return pd.DataFrame(rows)
 
@@ -126,16 +123,19 @@ elif period == "5개월 이상":
 if key:
     YOUTUBE = build("youtube", "v3", developerKey=key)
 
-    # Video IDs with publish date
+    # Video IDs
     if use_search:
         if not keyword:
-            st.warning("검색 키워드를 입력하세요."); st.stop()
-        vid_info = search_videos_global(
+            st.warning("검색 키워드를 입력하세요.")
+            st.stop()
+        vids = search_videos_global(
             keyword, max_res, region, dur, published_after, published_before
         )
+        vid_info = [(v, None) for v in vids]
     else:
         if not channel_url:
-            st.warning("채널 URL을 입력하세요."); st.stop()
+            st.warning("채널 URL을 입력하세요.")
+            st.stop()
         cid = channel_url.split("?")[0].split("/")[-1]
         stats = YOUTUBE.channels().list(part="statistics", id=cid).execute()["items"][0]["statistics"]
         sub_count = int(stats.get("subscriberCount", 0))
@@ -177,12 +177,13 @@ if key:
     else:
         df = df.sort_values(by="label", key=lambda c: c.map({"GREAT":0,"GOOD":1,"BAD":2,"0":3}))
 
-    # Display rows
+    # Display
     for idx, row in df.iterrows():
         star = "⭐️" if (row["channel_subs"] > 0 and row["views"] >= 1.5 * row["channel_subs"]) else ""
         cols = st.columns([1, 4, 1, 1, 1])
         cols[0].image(row["thumbnail"], width=120)
-        # 여기서 게시일 표시
+
+        # 채널명, 제목, 조회수, 게시일
         pub_date = row["publishedAt"].strftime("%Y-%m-%d")
         cols[1].markdown(
             f"**{row['channelTitle']}**  \n"
@@ -208,6 +209,16 @@ if key:
                     st.text(text)
             except Exception:
                 st.error("이 영상의 스크립트를 가져올 수 없습니다.")
+
+        # ── 썸네일 다운로드 버튼 ──
+        thumb_data = requests.get(row["thumbnail"]).content
+        cols[4].download_button(
+            label="썸네일 다운",
+            data=thumb_data,
+            file_name=f"{row['id']}.jpg",
+            mime="image/jpeg",
+        )
+
 
 
 
