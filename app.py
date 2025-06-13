@@ -63,12 +63,12 @@ def fetch_video_details(video_info):
                 "title": it["snippet"]["title"],
                 "thumbnail": f"https://img.youtube.com/vi/{vid}/mqdefault.jpg",
                 "views": int(it["statistics"].get("viewCount", 0)),
-                "publishedAt": pd.to_datetime(
-                    pubs.get(vid, it["snippet"]["publishedAt"])
-                ),
+                "publishedAt": pubs.get(vid, it["snippet"]["publishedAt"])
             })
     df = pd.DataFrame(rows)
-    # ↙ 여기서 한 번만 strftime 호출
+    # ← 여기서 publishedAt 을 datetime으로 변환
+    df["publishedAt"] = pd.to_datetime(df["publishedAt"])
+    # ← 변환된 datetime 에서 한 번만 strftime 호출
     df["pub_date"] = df["publishedAt"].dt.strftime("%Y-%m-%d")
     return df
 
@@ -122,14 +122,12 @@ if key:
 
     if use_search:
         if not keyword:
-            st.warning("검색 키워드를 입력하세요.")
-            st.stop()
+            st.warning("검색 키워드를 입력하세요."); st.stop()
         vids = search_videos_global(keyword, max_res, region, dur, published_after, published_before)
         vid_info = [(v,None) for v in vids]
     else:
         if not channel_url:
-            st.warning("채널 URL을 입력하세요.")
-            st.stop()
+            st.warning("채널 URL을 입력하세요."); st.stop()
         cid = channel_url.split("?")[0].split("/")[-1]
         stats = YOUTUBE.channels().list(part="statistics",id=cid).execute()["items"][0]["statistics"]
         sub_count = int(stats.get("subscriberCount",0))
@@ -175,11 +173,9 @@ if key:
         cols[1].markdown(
             f"**{row['channelTitle']}**  \n"
             f"{star} [{row['title']}](https://youtu.be/{row['id']})  \n"
-            f"조회수: {row['views']:,}  \n"
-            f"게시일: {row['pub_date']}",  # ← 여기만 바뀜
+            f"조회수: {row['views']:,}  |  게시일: {row['pub_date']}",
             unsafe_allow_html=True,
         )
-
         cols[2].markdown(f"구독자: {row['channel_subs']:,}")
         color_map = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}
         cols[3].markdown(
@@ -195,6 +191,7 @@ if key:
                     st.text(text)
             except Exception:
                 st.error("이 영상의 스크립트를 가져올 수 없습니다.")
+
 
 
 
