@@ -122,7 +122,6 @@ elif period == "5개월 이상":
 if key:
     YOUTUBE = build("youtube", "v3", developerKey=key)
 
-    # Video IDs
     if use_search:
         if not keyword:
             st.warning("검색 키워드를 입력하세요.")
@@ -141,16 +140,13 @@ if key:
         st.write(f"**채널 구독자 수:** {sub_count:,}")
         vid_info = fetch_video_list(cid)
 
-    # Load details
     df = fetch_video_details(vid_info)
     subs_map = fetch_channel_subs(df["channelId"].unique().tolist())
     df["channel_subs"] = df["channelId"].map(subs_map)
 
-    # Avg views
     avg_views = df["views"].mean() if not df.empty else 0
     st.write(f"**평균 조회수:** {avg_views:,.0f}")
 
-    # Grade
     def view_grade(v):
         if v == 0: return "0"
         if avg_views == 0: return "BAD"
@@ -159,7 +155,6 @@ if key:
         return "BAD"
     df["label"] = df["views"].apply(view_grade)
 
-    # Sort
     sort_option = st.selectbox("정렬 방식", [
         "조회수 내림차순", "조회수 오름차순",
         "구독자 수 내림차순", "구독자 수 오름차순",
@@ -176,13 +171,12 @@ if key:
     else:
         df = df.sort_values(by="label", key=lambda c: c.map({"GREAT":0,"GOOD":1,"BAD":2,"0":3}))
 
-    # Display
     for idx, row in df.iterrows():
         star = "⭐️" if (row["channel_subs"] > 0 and row["views"] >= 1.5 * row["channel_subs"]) else ""
         cols = st.columns([1, 4, 1, 1, 1])
         cols[0].image(row["thumbnail"], width=120)
 
-        # 이 줄만 정확히 복사·붙여넣으세요 ↓
+        # ← 이 부분만 정확히 바꿔붙여주세요
         cols[1].markdown(
             f"**{row['channelTitle']}**  \n"
             f"{star} [{row['title']}](https://youtu.be/{row['id']})  \n"
@@ -199,15 +193,13 @@ if key:
 
         if cols[4].button("스크립트 보기", key=f"exp_{idx}"):
             try:
-                segs = YouTubeTranscriptApi.get_transcript(
-                    row["id"],
-                    languages=["ko"],
-                )
+                segs = YouTubeTranscriptApi.get_transcript(row["id"], languages=["ko"])
                 text = "\n".join(s["text"] for s in segs)
                 with st.expander(f"📝 {row['title']} 스크립트", expanded=True):
                     st.text(text)
             except Exception:
                 st.error("이 영상의 스크립트를 가져올 수 없습니다.")
+
 
 
 
