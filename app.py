@@ -58,7 +58,8 @@ def fetch_video_details(video_info):
             vid = it["id"]
             rows.append({
                 "id": vid,
-                "channelTitle": it["snippet"]["channelTitle"],       # ← 채널명 필드 추가
+                "channelId": it["snippet"]["channelId"],      # 채널 ID
+                "channelTitle": it["snippet"]["channelTitle"],
                 "title": it["snippet"]["title"],
                 "thumbnail": f"https://img.youtube.com/vi/{vid}/mqdefault.jpg",
                 "views": int(it["statistics"].get("viewCount", 0)),
@@ -78,18 +79,9 @@ def fetch_channel_subs(channel_ids):
             subs[it["id"]] = int(it["statistics"].get("subscriberCount", 0))
     return subs
 
-def download_caption(video_id):
-    try:
-        segs = YouTubeTranscriptApi.get_transcript(video_id)
-        txt = "\n".join(s["text"] for s in segs)
-        st.download_button("다운로드", txt, file_name=f"{video_id}.txt")
-    except Exception as e:
-        st.error(f"스크립트 오류: {e}")
-
 # --- UI & Main ---
 st.title("YouTube Channel Analyzer")
 
-# 입력 옵션
 key = st.text_input("🔑 YouTube API 키", type="password")
 use_search = st.checkbox("🔍 키워드 검색 모드")
 if use_search:
@@ -97,7 +89,6 @@ if use_search:
 else:
     channel_url = st.text_input("🔗 채널 URL")
 
-# 필터 옵션
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     region = st.selectbox(
@@ -116,7 +107,6 @@ with col4:
         "업로드 기간", ["전체", "1개월 내", "3개월 내", "5개월 이상"]
     )
 
-# 기간 필터 계산
 now = datetime.utcnow()
 published_after = published_before = None
 if period == "1개월 내":
@@ -129,7 +119,6 @@ elif period == "5개월 이상":
 if key:
     YOUTUBE = build("youtube", "v3", developerKey=key)
 
-    # 영상 ID 목록
     if use_search:
         if not keyword:
             st.warning("검색 키워드를 입력하세요.")
@@ -146,28 +135,31 @@ if key:
         st.write(f"**채널 구독자 수:** {sub_count:,}")
         vid_info = fetch_video_list(cid)
 
-    # 상세정보 로드
     df = fetch_video_details(vid_info)
-    df["channel_subs"] = df["channelTitle"].map(fetch_channel_subs(df["channelId"].unique().tolist()))
 
-    # 평균 조회수
+    # ── 여기 수정 ──
+    subs_map = fetch_channel_subs(df["channelId"].unique().tolist())
+    df["channel_subs"] = df["channelId"].map(subs_map)
+    # ─────────────
+
     avg_views = df["views"].mean() if not df.empty else 0
     st.write(f"**평균 조회수:** {avg_views:,.0f}")
 
-    # 등급 함수
     def view_grade(v):
-        if v == 0: return "0"
-        if avg_views == 0: return "BAD"
-        if v >= 1.5*avg_views: return "GREAT"
-        if v >= avg_views:     return "GOOD"
+        if v == 0:
+            return "0"
+        if avg_views == 0:
+            return "BAD"
+        if v >= 1.5 * avg_views:
+            return "GREAT"
+        if v >= avg_views:
+            return "GOOD"
         return "BAD"
     df["label"] = df["views"].apply(view_grade)
 
-    # 정렬 옵션
     sort_option = st.selectbox("정렬 방식", [
         "조회수 내림차순","조회수 오름차순",
-        "구독자 수 내림차순","구독자 수 오름차순",
-        "등급별"
+        "구독자 수 내림차순","구독자 수 오름차순","등급별"
     ])
     if sort_option == "조회수 내림차순":
         df = df.sort_values("views", ascending=False)
@@ -180,40 +172,29 @@ if key:
     else:
         df = df.sort_values(by="label", key=lambda c: c.map({"GREAT":0,"GOOD":1,"BAD":2,"0":3}))
 
-    # 결과 출력
     for idx, row in df.iterrows():
-        star = "⭐️" if (row["channel_subs"]>0 and row["views"]>=1.5*row["channel_subs"]) else ""
+        star = "⭐️" if (row["channel_subs"] > 0 and row["views"] >= 1.5 * row["channel_subs"]) else ""
         cols = st.columns([1, 4, 1, 1, 1])
         cols[0].image(row["thumbnail"], width=120)
-
-        # ── 채널명 · 제목 · 조회수 ──
         cols[1].markdown(
-            f"**{row['channelTitle']}**  \n"  # ← 채널명
+            f"**{row['channelTitle']}**  \n"
             f"{star} **{row['title']}**  \n"
             f"조회수: {row['views']:,}"
         )
-
         cols[2].markdown(f"구독자: {row['channel_subs']:,}")
-
         color_map = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}
         cols[3].markdown(
             f"<span style='color:{color_map[row['label']]};font-weight:bold'>{row['label']}</span>",
             unsafe_allow_html=True
         )
-
-        # 스크립트 다운로드
         if cols[4].button("스크립트 다운", key=idx):
             try:
                 segs = YouTubeTranscriptApi.get_transcript(row["id"])
                 txt = "\n".join(s["text"] for s in segs)
-                st.download_button(
-                    label="다운로드",
-                    data=txt,
-                    file_name=f"{row['id']}.txt",
-                    mime="text/plain",
-                )
+                st.download_button("다운로드", txt, file_name=f"{row['id']}.txt")
             except Exception as e:
                 st.error(f"스크립트 오류: {e}")
+
 
 
 
