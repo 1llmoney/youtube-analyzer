@@ -191,6 +191,7 @@ if key:
         )
 
         # 스크립트 expander
+# ── 스크립트 보기 버튼 (개선된 예외 처리) ──
 if cols[4].button("스크립트 보기", key=f"exp_{idx}"):
     try:
         segs = YouTubeTranscriptApi.get_transcript(
