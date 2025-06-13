@@ -169,26 +169,27 @@ if key:
         cols = st.columns([1,4,1,1,1])
         cols[0].image(row["thumbnail"],width=120)
 
-        # ← 이 부분만 주목해주세요!
+        # → 게시일 처리만 분리해서 변수로!
+        pub_date = row["publishedAt"].strftime("%Y-%m-%d")
+
         cols[1].markdown(
             f"**{row['channelTitle']}**  \n"
             f"{star} [{row['title']}](https://youtu.be/{row['id']})  \n"
             f"조회수: {row['views']:,}  \n"
-            f"게시일: {row['publishedAt'].strftime('%Y-%m-%d')}",  # <-- 끝에 반드시 쉼표!
+            f"게시일: {pub_date}",   # 이 줄 끝에는 쉼표 또는 괄호 닫기만!
             unsafe_allow_html=True,
         )
 
         cols[2].markdown(f"구독자: {row['channel_subs']:,}")
         color_map = {"GREAT":"#CCFF00","GOOD":"#00AA00","BAD":"#DD0000","0":"#888888"}
         cols[3].markdown(
-            f"<span style='color:{color_map[row['label']]};"
-            f"font-weight:bold'>{row['label']}</span>",
+            f"<span style='color:{color_map[row['label']]};font-weight:bold'>{row['label']}</span>",
             unsafe_allow_html=True,
         )
 
         if cols[4].button("스크립트 보기", key=f"exp_{idx}"):
             try:
-                segs = YouTubeTranscriptApi.get_transcript(row["id"], languages=["ko","en"])
+                segs = YouTubeTranscriptApi.get_transcript(row["id"], languages=["ko"])
                 text = "\n".join(s["text"] for s in segs)
                 with st.expander(f"📝 {row['title']} 스크립트", expanded=True):
                     st.text(text)
